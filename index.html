@@ -1,0 +1,122 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polling Jokowi vs Prabowo</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:25px 15px;background:#101827;color:white;font-family:Arial,sans-serif}
+main{max-width:600px;margin:auto}
+header{text-align:center;padding:25px 5px}
+h1{font-size:38px;margin:15px 0}
+header p{color:#bac8dc;line-height:1.6}
+.tag{color:#9bcaff;border:1px solid #526986;border-radius:20px;padding:7px 12px;font-size:12px}
+.panel{background:#192940;border:1px solid #344b68;border-radius:20px;padding:20px}
+.question{text-align:center;font-size:20px;font-weight:bold}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.choice{padding:20px 8px;border-radius:15px;border:1px solid #526986;background:#243a57;color:white;font-size:18px;font-weight:bold;cursor:pointer}
+.choice:disabled{opacity:.5}
+.initial{display:block;font-size:35px;margin-bottom:10px}
+#status{text-align:center;min-height:35px;margin:15px 0;color:#b9d9ff;font-size:14px}
+h2{font-size:20px}
+.result{margin:18px 0}
+.labels{display:flex;justify-content:space-between;margin-bottom:8px;font-weight:bold}
+.track{height:14px;background:#35465d;border-radius:20px;overflow:hidden}
+.fill{height:100%;width:0;background:#58a5f5;transition:width .4s}
+.prabowo{background:#f0bd52}
+button.refresh{display:block;margin:20px auto 0;padding:10px 18px;border-radius:20px;border:1px solid #7790ad;background:transparent;color:white}
+.note{font-size:12px;line-height:1.6;color:#e8d9aa;background:#332c1d;padding:12px;border-radius:12px;margin-top:20px}
+</style>
+</head>
+<body>
+<main>
+<header>
+<span class="tag">POLLING PUBLIK • NONRESMI</span>
+<h1>Jokowi <span style="color:#8dc5ff">VS</span> Prabowo</h1>
+<p>Menurut kamu, siapa pilihanmu? Berikan suara dan lihat hasil polling secara langsung.</p>
+</header>
+
+<section class="panel">
+<p class="question">Siapa pilihanmu?</p>
+<div class="choices">
+<button class="choice" id="jokowi"><span class="initial">🇮🇩</span>JOKOWI</button>
+<button class="choice" id="prabowo"><span class="initial">🇮🇩</span>PRABOWO</button>
+</div>
+<div id="status">Menghubungkan ke server...</div>
+<h2>Hasil sementara</h2>
+<p id="total" style="text-align:center;color:#bac8dc">Memuat suara...</p>
+
+<div class="result">
+<div class="labels"><span>Jokowi</span><span id="jp">0%</span></div>
+<div class="track"><div class="fill" id="jb"></div></div>
+</div>
+<div class="result">
+<div class="labels"><span>Prabowo</span><span id="pp">0%</span></div>
+<div class="track"><div class="fill prabowo" id="pb"></div></div>
+</div>
+<button class="refresh" id="refresh">Perbarui hasil</button>
+
+<div class="note">
+<strong>Catatan:</strong> Polling ini tidak resmi dan bukan survei ilmiah atau hasil pemilu. Hasil hanya mencerminkan suara yang masuk melalui halaman ini. Pembatasan satu suara menggunakan token browser, bukan verifikasi identitas, sehingga tidak menjamin satu orang hanya memilih sekali.
+</div>
+</section>
+</main>
+
+<script>
+const URL="https://cniccnbzekikxlxdqiwg.supabase.co";
+const KEY="sb_publishable_6uRFH-EuNCmLAjsqUWsgKQ_tW-v57wA";
+const db=window.supabase.createClient(URL,KEY);
+const status=document.getElementById("status");
+const buttons=[document.getElementById("jokowi"),document.getElementById("prabowo")];
+
+function voterToken(){
+ let t=localStorage.getItem("poll_voter_token");
+ if(!t){t=crypto.randomUUID();localStorage.setItem("poll_voter_token",t)}
+ return t;
+}
+
+async function loadResults(){
+ const {data,error}=await db.rpc("poll_results");
+ if(error){status.textContent="Gagal memuat hasil. Periksa koneksi.";console.error(error);return}
+ const counts={Jokowi:0,Prabowo:0};
+ (data||[]).forEach(x=>{if(x.candidate in counts)counts[x.candidate]=Number(x.votes)||0});
+ const total=counts.Jokowi+counts.Prabowo;
+ const j=total?counts.Jokowi/total*100:0;
+ const p=total?counts.Prabowo/total*100:0;
+ document.getElementById("total").textContent=total.toLocaleString("id-ID")+" suara masuk";
+ document.getElementById("jp").textContent=j.toFixed(1)+"%";
+ document.getElementById("pp").textContent=p.toFixed(1)+"%";
+ document.getElementById("jb").style.width=j+"%";
+ document.getElementById("pb").style.width=p+"%";
+}
+
+async function vote(candidate){
+ buttons.forEach(b=>b.disabled=true);
+ status.textContent="Mengirim suara...";
+ const {error}=await db.rpc("cast_poll_vote",{
+  p_voter_token:voterToken(),
+  p_candidate:candidate
+ });
+ if(error){
+  status.textContent=error.message.toLowerCase().includes("sudah")?
+  "Browser ini sudah pernah memilih.":
+  "Suara gagal dikirim. Coba lagi.";
+  console.error(error);
+ }else{
+  status.textContent="Terima kasih! Suaramu berhasil dicatat.";
+ }
+ await loadResults();
+ buttons.forEach(b=>b.disabled=false);
+}
+
+buttons[0].addEventListener("click",()=>vote("Jokowi"));
+buttons[1].addEventListener("click",()=>vote("Prabowo"));
+document.getElementById("refresh").addEventListener("click",loadResults);
+loadResults();
+setInterval(loadResults,10000);
+</script>
+</body>
+</html>
