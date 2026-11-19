@@ -191,7 +191,7 @@ const buttons = [
 ];
 
 let db;
-
+db = window.supabase.createClient(URL, KEY);
 function voterToken(){
   let token = localStorage.getItem("poll_voter_token");
 
