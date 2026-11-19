@@ -164,51 +164,5 @@ loadResults();
 setInterval(loadResults, 10000);
 </script>
 
-function voterToken(){
- let t=localStorage.getItem("poll_voter_token");
- if(!t){t=crypto.randomUUID();localStorage.setItem("poll_voter_token",t)}
- return t;
-}
-
-async function loadResults(){
- const {data,error}=await db.rpc("poll_results");
- if(error){status.textContent="Gagal memuat hasil. Periksa koneksi.";console.error(error);return}
- const counts={Jokowi:0,Prabowo:0};
- (data||[]).forEach(x=>{if(x.candidate in counts)counts[x.candidate]=Number(x.votes)||0});
- const total=counts.Jokowi+counts.Prabowo;
- const j=total?counts.Jokowi/total*100:0;
- const p=total?counts.Prabowo/total*100:0;
- document.getElementById("total").textContent=total.toLocaleString("id-ID")+" suara masuk";
- document.getElementById("jp").textContent=j.toFixed(1)+"%";
- document.getElementById("pp").textContent=p.toFixed(1)+"%";
- document.getElementById("jb").style.width=j+"%";
- document.getElementById("pb").style.width=p+"%";
-}
-
-async function vote(candidate){
- buttons.forEach(b=>b.disabled=true);
- status.textContent="Mengirim suara...";
- const {error}=await db.rpc("cast_poll_vote",{
-  p_voter_token:voterToken(),
-  p_candidate:candidate
- });
- if(error){
-  status.textContent=error.message.toLowerCase().includes("sudah")?
-  "Browser ini sudah pernah memilih.":
-  "Suara gagal dikirim. Coba lagi.";
-  console.error(error);
- }else{
-  status.textContent="Terima kasih! Suaramu berhasil dicatat.";
- }
- await loadResults();
- buttons.forEach(b=>b.disabled=false);
-}
-
-buttons[0].addEventListener("click",()=>vote("Jokowi"));
-buttons[1].addEventListener("click",()=>vote("Prabowo"));
-document.getElementById("refresh").addEventListener("click",loadResults);
-loadResults();
-setInterval(loadResults,10000);
-</script>
 </body>
 </html>
