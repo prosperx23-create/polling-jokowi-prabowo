@@ -179,10 +179,11 @@ Satu perangkat/browser dibatasi satu suara.
 </main>
 
 <script>
+<script>
 const URL = "https://cniccnbzekikxlxdqiwg.supabase.co";
-
 const KEY = "sb_publishable_6uRFH-EuNCmLAjsqUWsgKQ_tW-v57wA";
 
+const db = window.supabase.createClient(URL, KEY);
 const status = document.getElementById("status");
 
 const buttons = [
@@ -190,42 +191,31 @@ const buttons = [
   document.getElementById("prabowo")
 ];
 
-let db;
-db = window.supabase.createClient(URL, KEY);
-function voterToken(){
+function voterToken() {
   let token = localStorage.getItem("poll_voter_token");
 
-  if(!token){
+  if (!token) {
     token = crypto.randomUUID();
-    localStorage.setItem("poll_voter_token",token);
+    localStorage.setItem("poll_voter_token", token);
   }
 
   return token;
 }
 
-function showError(message){
-  status.textContent = "Koneksi gagal: " + message;
-}
-
-async function loadResults(){
-  if(!db){
-    status.textContent = "Menyiapkan koneksi database...";
-    return;
-  }
-
+async function loadResults() {
   status.textContent = "Memeriksa koneksi database...";
 
-  try{
-    const {data,error} = await db.rpc("poll_results");
+  try {
+    const { data, error } = await db.rpc("poll_results");
 
-    if(error) throw error;
+    if (error) throw error;
 
     let counts = {
-      Jokowi:0,
-      Prabowo:0
+      Jokowi: 0,
+      Prabowo: 0
     };
 
-    data.forEach(item=>{
+    data.forEach(item => {
       counts[item.candidate] = Number(item.votes) || 0;
     });
 
@@ -246,71 +236,46 @@ async function loadResults(){
     document.getElementById("jb").style.width = j + "%";
     document.getElementById("pb").style.width = p + "%";
 
-    status.textContent = "Terhubung! Polling aktif.";
+    status.textContent = "Koneksi berhasil!";
 
-  }catch(error){
-    showError(error.message);
+  } catch (error) {
+    status.textContent = "Koneksi gagal: " + error.message;
     console.error(error);
   }
 }
 
-async function vote(candidate){
-
-  buttons.forEach(button=>button.disabled=true);
+async function vote(candidate) {
+  buttons.forEach(button => button.disabled = true);
 
   status.textContent = "Mengirim suara...";
 
-  try{
-
-    const {error} = await db.rpc("cast_poll_vote",{
-      p_voter_token:voterToken(),
-      p_candidate:candidate
+  try {
+    const { error } = await db.rpc("cast_poll_vote", {
+      p_voter_token: voterToken(),
+      p_candidate: candidate
     });
 
-    if(error) throw error;
+    if (error) throw error;
 
-    status.textContent = "Terima kasih! Suaramu berhasil dicatat.";
+    status.textContent = "Suara berhasil dicatat!";
 
     await loadResults();
 
-  }catch(error){
-
-    if(error.message.toLowerCase().includes("sudah")){
-      status.textContent =
-        "Browser ini sudah pernah memilih.";
-    }else{
-      status.textContent =
-        "Gagal mengirim suara: " + error.message;
-    }
-
+  } catch (error) {
+    status.textContent = "Gagal: " + error.message;
     console.error(error);
 
-  }finally{
-    buttons.forEach(button=>button.disabled=false);
+  } finally {
+    buttons.forEach(button => button.disabled = false);
   }
 }
 
-buttons[0].addEventListener("click",()=>vote("Jokowi"));
-buttons[1].addEventListener("click",()=>vote("Prabowo"));
+buttons[0].onclick = () => vote("Jokowi");
+buttons[1].onclick = () => vote("Prabowo");
 
-document.getElementById("refresh").addEventListener("click",loadResults);
+document.getElementById("refresh").onclick = loadResults;
 
-try{
+loadResults();
 
-  if(!window.supabase){
-    throw new Error("Library Supabase gagal dimuat. Periksa internet.");
-  }
-
-  db = window.supabase.createClient(URL,KEY);
-
-  loadResults();
-
-  setInterval(loadResults,10000);
-
-}catch(error){
-  showError(error.message);
-}
+setInterval(loadResults, 10000);
 </script>
-
-</body>
-</html>
