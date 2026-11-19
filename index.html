@@ -66,11 +66,103 @@ button.refresh{display:block;margin:20px auto 0;padding:10px 18px;border-radius:
 </main>
 
 <script>
-const URL="https://cniccnbzekikxlxdqiwg.supabase.co";
-const KEY="sb_publishable_6uRFH-EuNCmLAjsqUWsgKQ_tW-v57wA";
-const db=window.supabase.createClient(URL,KEY);
-const status=document.getElementById("status");
-const buttons=[document.getElementById("jokowi"),document.getElementById("prabowo")];
+
+
+<script>
+const URL = "https://cniccnbzekikxlxdqiwg.supabase.co";
+const KEY = "sb_publishable_6uRFH-EuNCmLAjsqUWsgKQ_tW-v57wA";
+
+const db = window.supabase.createClient(URL, KEY);
+const status = document.getElementById("status");
+const buttons = [
+  document.getElementById("jokowi"),
+  document.getElementById("prabowo")
+];
+
+function voterToken() {
+  let token = localStorage.getItem("poll_voter_token");
+  if (!token) {
+    token = crypto.randomUUID();
+    localStorage.setItem("poll_voter_token", token);
+  }
+  return token;
+}
+
+async function loadResults() {
+  status.textContent = "Memeriksa koneksi database...";
+
+  try {
+    const { data, error } = await db.rpc("poll_results");
+
+    if (error) {
+      status.textContent = "Error database: " + error.message;
+      return;
+    }
+
+    let jokowi = 0;
+    let prabowo = 0;
+
+    data.forEach(row => {
+      if (row.candidate === "Jokowi") jokowi = Number(row.votes);
+      if (row.candidate === "Prabowo") prabowo = Number(row.votes);
+    });
+
+    const total = jokowi + prabowo;
+    const jp = total ? jokowi / total * 100 : 0;
+    const pp = total ? prabowo / total * 100 : 0;
+
+    document.getElementById("total").textContent =
+      total + " suara masuk";
+
+    document.getElementById("jp").textContent =
+      jp.toFixed(1) + "%";
+
+    document.getElementById("pp").textContent =
+      pp.toFixed(1) + "%";
+
+    document.getElementById("jb").style.width = jp + "%";
+    document.getElementById("pb").style.width = pp + "%";
+
+    status.textContent = "Terhubung! Polling aktif.";
+
+  } catch (e) {
+    status.textContent = "Koneksi gagal: " + e.message;
+  }
+}
+
+async function vote(candidate) {
+  buttons.forEach(b => b.disabled = true);
+  status.textContent = "Mengirim suara...";
+
+  try {
+    const { error } = await db.rpc("cast_poll_vote", {
+      p_voter_token: voterToken(),
+      p_candidate: candidate
+    });
+
+    if (error) {
+      status.textContent = "Gagal: " + error.message;
+    } else {
+      status.textContent = "Suara berhasil dicatat!";
+    }
+
+    await loadResults();
+
+  } catch (e) {
+    status.textContent = "Error: " + e.message;
+  }
+
+  buttons.forEach(b => b.disabled = false);
+}
+
+buttons[0].onclick = () => vote("Jokowi");
+buttons[1].onclick = () => vote("Prabowo");
+
+document.getElementById("refresh").onclick = loadResults;
+
+loadResults();
+setInterval(loadResults, 10000);
+</script>
 
 function voterToken(){
  let t=localStorage.getItem("poll_voter_token");
